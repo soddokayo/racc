@@ -13,7 +13,10 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 
 # log
-fout = open('out.txt', 'w', encoding='utf8')
+import time
+FNAME = time.strftime("RACCLOG %Y-%m-%d-%H.%M.%S.txt")
+fout = open(FNAME, 'w', encoding='utf8')
+fout.close()
 
 # tor setting
 PROXY = "socks5://localhost:9050"
@@ -39,7 +42,7 @@ finally:
     # eternal crawling (cnt<50)
     cnt=0
     while True:
-        if cnt>10:
+        if cnt>50:
             break
 
         # enter a ranchat room
@@ -54,38 +57,44 @@ finally:
         # simple chat bot
         text0=0
         try:
+            # wait until loading
             text0 = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, '//div[@class="form"]/span[@class="input"]/input'))
             )
         finally:
+            # initial msg
             msg0 = 'ㄴㅈ'
             text0.send_keys(msg0)
             text0.send_keys(Keys.RETURN)
-            #driver.find_element((By.XPATH, '//div[@class="form"]/span[@class="submit"]/button'))
-        # wait for chatting
+        
+        # recog spam detectection
+        msg1 = driver.find_element(by=By.XPATH, value="//div[not(@id='room0')][@class='room']/table/tbody/tr/td/div/div")
+        if 'SPAM' in msg1.get_attribute('innerHTML') or '스팸' in msg1.get_attribute('innerHTML'):
+            print('spam detected')
+            # NEED: VPN renew process
+            # continue
+            break
 
-        driver.implicitly_wait(10)
+        # NEED: chatbot
 
-        # wait for stranger's escape
         try:
-            start1 = WebDriverWait(driver, 60).until(
+            # wait for the stranger escapes
+            close1 = WebDriverWait(driver, 70).until(
                 EC.invisibility_of_element_located((By.CLASS_NAME, 'v_close'))
             )
+        except:
+            # exit after 70 sec
+            close1 = driver.find_element(by=By.CLASS_NAME, value='v_close')
+            ActionChains(driver).move_to_element(close1).click(close1).perform()
         finally:
             try:
-                msg1 = driver.find_element((By.XPATH, '//div[@class="v_area v_area_scroll"]/div[@class="v_area_in"]'))
-                fout.write(msg1.get_attribute('innerHTML'))
+                # log
+                fout = open(FNAME, 'a', encoding='utf8')
+                msg1 = driver.find_element(by=By.XPATH, value="//div[not(@id='room0')][@class='room']/table/tbody/tr/td/div/div")
+                fout.write('[' + str(cnt) + ']\n' + msg1.get_attribute('innerHTML') + '\n\n')
+                fout.close()
             except Exception as e:
                 print(e)
-            # log the last msg
-            # try:
-            #     msg1 = WebDriverWait(driver, 5).until(
-            #         EC.presence_of_element_located((By.CLASS_NAME, 'msg msg_stranger'))
-            #     )
-            # finally:
-            #     fout.write(msg1.get_attribute('innerHTML'))
-
-fout.close()
 
 driver.close()
 driver.quit()
